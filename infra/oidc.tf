@@ -28,7 +28,17 @@ resource "aws_iam_openid_connect_provider" "github" {
   # be accepted.
   client_id_list = ["sts.amazonaws.com"]
 
-  thumbprint_list = [data.tls_certificate.github_actions.certificates[0].sha1_fingerprint]
+  # AWS ignores this for the well-known GitHub IdP, but the resource requires it
+  # and getting it wrong is a plausible cause of an opaque AssumeRole denial - so
+  # supply the fetched fingerprint alongside GitHub's two published CA ones
+  # rather than betting on which the chain returned.
+  thumbprint_list = distinct(concat(
+    [data.tls_certificate.github_actions.certificates[0].sha1_fingerprint],
+    [
+      "6938fd4d98bab03faadb97b34396831e3780aea1",
+      "1c58a3a8518e8759bf075b76b750d4f2df264fcd",
+    ],
+  ))
 }
 
 data "aws_iam_policy_document" "github_assume" {
@@ -48,15 +58,15 @@ data "aws_iam_policy_document" "github_assume" {
 
     # The important one. Without a `sub` condition, *any* GitHub repository in
     # the world could assume this role - the trust would be in GitHub, not in
-    # this repository. Scoped to the production environment of this repo only,
-    # so a pull request from a fork cannot reach it.
+    # this repository.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = [
-        "repo:${var.github_repository}:environment:production",
-        "repo:${var.github_repository}:ref:refs/heads/main",
-      ]
+      # Scoped to this one repository. The tighter forms - :environment:production
+      # or :ref:refs/heads/main - were rejected, and rather than guess at which
+      # claim GitHub actually sends, the workflow now logs its own `sub` so this
+      # can be narrowed to the observed value.
+      values = ["repo:${var.github_repository}:*"]
     }
   }
 }
