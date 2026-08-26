@@ -161,6 +161,9 @@ docker build -t loganomaly . && docker run -p 8000:8000 loganomaly
 
 ## Delivery pipeline
 
+> Standing this up from scratch — GitHub, AWS, first deploy, the demo — is
+> a step-by-step runbook in [`docs/SETUP.md`](docs/SETUP.md).
+
 The service that detects anomalies in logs is deployed by a pipeline that emits
 logs, which the service then ingests and monitors. A misbehaving deploy shows up
 in the tool's own alert stream.
