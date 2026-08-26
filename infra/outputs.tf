@@ -61,3 +61,13 @@ output "deploy_target" {
     region    = var.aws_region
   }
 }
+
+output "github_actions_role_arn" {
+  description = "Set this as the AWS_ROLE_ARN repository variable so the deploy job can assume it."
+  value       = aws_iam_role.github_deploy.arn
+}
+
+output "security_group_id" {
+  description = "The group the deploy job opens and closes SSH on."
+  value       = aws_security_group.instance.id
+}

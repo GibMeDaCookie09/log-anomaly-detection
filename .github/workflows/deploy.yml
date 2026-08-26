@@ -27,6 +27,8 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  # A tag push does not match ci.yml's branch filter, so without this a broken
+  # commit could be deployed having never run the test suite.
   ci:
     name: CI
     uses: ./.github/workflows/ci.yml
@@ -91,8 +93,46 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     environment: production
+
+    # id-token is what makes the OIDC exchange possible. Declared at job level
+    # rather than workflow level so the CI and publish jobs never receive it.
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      SSH_USER: ${{ vars.DEPLOY_USER || 'ec2-user' }}
+      SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+
     steps:
       - uses: actions/checkout@v4
+
+      # Short-lived credentials from an OIDC token. No AWS access key exists in
+      # this repository; the role's trust policy pins the audience and the
+      # repo/environment, so no other repository can assume it.
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-deploy-${{ github.run_id }}
+
+      # SSH is closed to everyone except the operator's home address. Rather than
+      # widening that permanently - or allow-listing GitHub's thousands of
+      # published runner CIDRs - the job opens the door for its own address only,
+      # and closes it again below whatever happens.
+      - name: Open SSH for this runner
+        id: sg
+        run: |
+          RUNNER_IP="$(curl -fsS --max-time 10 https://checkip.amazonaws.com | tr -d '[:space:]')"
+          echo "runner ip: ${RUNNER_IP}"
+          SG_ID="$(aws ec2 describe-security-groups --filters 'Name=tag:Project,Values=loganomaly' --query 'SecurityGroups[0].GroupId' --output text)"
+          echo "security group: ${SG_ID}"
+          RULE_ID="$(aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=${RUNNER_IP}/32,Description=github-actions-run-${{ github.run_id }}}]" --query 'SecurityGroupRules[0].SecurityGroupRuleId' --output text)"
+          echo "rule: ${RULE_ID}"
+          echo "sg_id=${SG_ID}" >> "$GITHUB_OUTPUT"
+          echo "rule_id=${RULE_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Configure SSH
         run: |
@@ -104,13 +144,13 @@ jobs:
           # rebuild. The exposure is a MITM on the first connection after a
           # rebuild; pinning the key in a secret is the stricter alternative if
           # the instance becomes long-lived.
-          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       # The whole deploy/ directory, not just deploy.sh: the self-monitoring
       # runner and its systemd units ship with the code too.
       - name: Copy deploy and monitoring scripts
         run: |
-          TARGET="${{ vars.DEPLOY_USER || 'ec2-user' }}@${{ secrets.DEPLOY_HOST }}"
+          TARGET="${SSH_USER}@${SSH_HOST}"
           ssh -i ~/.ssh/deploy_key "$TARGET" "rm -rf /tmp/loganomaly-deploy && mkdir -p /tmp/loganomaly-deploy"
           scp -i ~/.ssh/deploy_key deploy/* "$TARGET:/tmp/loganomaly-deploy/"
           ssh -i ~/.ssh/deploy_key "$TARGET" "chmod +x /tmp/loganomaly-deploy/*.sh"
@@ -118,11 +158,10 @@ jobs:
       # GHCR packages are private by default, so the host gets a 401 on pull
       # unless it is authenticated. The run-scoped GITHUB_TOKEN is used rather
       # than a PAT: it expires when the job ends, so nothing long-lived is left
-      # sitting in the instance's docker config. (Making the package public is
-      # the other valid answer, and removes this step entirely.)
+      # sitting in the instance's docker config.
       - name: Authenticate the host to ghcr.io
         run: |
-          ssh -i ~/.ssh/deploy_key             "${{ vars.DEPLOY_USER || 'ec2-user' }}@${{ secrets.DEPLOY_HOST }}"             "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"             <<< "${{ secrets.GITHUB_TOKEN }}"
+          ssh -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" "docker login ghcr.io -u '${{ github.actor }}' --password-stdin" <<< "${{ secrets.GITHUB_TOKEN }}"
 
       # deploy.sh owns the rolling, the health gate and the rollback. The workflow
       # only decides what to tell the operator, based on which failure happened.
@@ -130,9 +169,7 @@ jobs:
         id: deploy
         run: |
           set +e
-          ssh -i ~/.ssh/deploy_key \
-            "${{ vars.DEPLOY_USER || 'ec2-user' }}@${{ secrets.DEPLOY_HOST }}" \
-            "bash /tmp/deploy.sh '${{ needs.publish.outputs.image }}' '${{ needs.publish.outputs.sha }}'"
+          ssh -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" "bash /tmp/loganomaly-deploy/deploy.sh '${{ needs.publish.outputs.image }}' '${{ needs.publish.outputs.sha }}'"
           echo "rc=$?" >> "$GITHUB_OUTPUT"
 
       - name: Interpret result
@@ -167,12 +204,12 @@ jobs:
       - name: Install the self-monitoring timer
         if: steps.deploy.outputs.rc == '0'
         run: |
-          ssh -i ~/.ssh/deploy_key "${{ vars.DEPLOY_USER || 'ec2-user' }}@${{ secrets.DEPLOY_HOST }}" "bash /tmp/loganomaly-deploy/install_monitoring.sh /tmp/loganomaly-deploy"
+          ssh -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" "bash /tmp/loganomaly-deploy/install_monitoring.sh /tmp/loganomaly-deploy"
 
       - name: Revoke the host's registry credentials
         if: always()
         run: |
-          ssh -i ~/.ssh/deploy_key             "${{ vars.DEPLOY_USER || 'ec2-user' }}@${{ secrets.DEPLOY_HOST }}"             "docker logout ghcr.io" || true
+          ssh -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" "docker logout ghcr.io" || true
 
       # Independent confirmation from outside the host. deploy.sh checks
       # localhost; this checks that the security group, the port mapping and the
@@ -180,7 +217,7 @@ jobs:
       - name: Verify from outside the instance
         if: steps.deploy.outputs.rc == '0'
         run: |
-          URL="http://${{ secrets.DEPLOY_HOST }}:${{ vars.API_PORT || '8000' }}/health"
+          URL="http://${SSH_HOST}:${{ vars.API_PORT || '8000' }}/health"
           for i in $(seq 1 10); do
             if curl -fsS --max-time 5 "$URL" -o health.json; then
               cat health.json
@@ -189,3 +226,12 @@ jobs:
             sleep 3
           done
           echo "::warning::Service is healthy on the host but not reachable at $URL - check the security group's api_ingress_cidrs."
+
+      # always(), and last. If this is skipped the port stays open to a runner
+      # address that will be recycled to someone else - which is worse than
+      # never having narrowed it.
+      - name: Close SSH again
+        if: always() && steps.sg.outputs.rule_id != ''
+        run: |
+          aws ec2 revoke-security-group-ingress --group-id "${{ steps.sg.outputs.sg_id }}" --security-group-rule-ids "${{ steps.sg.outputs.rule_id }}"
+          echo "revoked ${{ steps.sg.outputs.rule_id }}"

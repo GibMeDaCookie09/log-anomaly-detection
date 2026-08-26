@@ -10,6 +10,12 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
+    # Reads the GitHub OIDC endpoint's certificate so the provider thumbprint is
+    # resolved at apply time rather than hardcoded and left to rot.
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
   }
 
   # State is local on purpose. A remote S3 backend needs a bucket, and the only
