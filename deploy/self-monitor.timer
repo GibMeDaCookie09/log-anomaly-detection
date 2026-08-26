@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodic self-monitoring run
+
+[Timer]
+# Every 15 minutes, matching the alarm period on AnomaliesDetected.
+OnBootSec=10min
+OnUnitActiveSec=15min
+# Spreads runs so every instance in a fleet does not hit CloudWatch at :00.
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
