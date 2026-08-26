@@ -40,11 +40,13 @@ resource "aws_security_group" "instance" {
 # Two ports open, both explicitly. Nothing else: no 80, no 443, no ICMP.
 resource "aws_vpc_security_group_ingress_rule" "ssh" {
   security_group_id = aws_security_group.instance.id
-  description       = "SSH from the operator's address only"
-  cidr_ipv4         = var.admin_cidr
-  from_port         = 22
-  to_port           = 22
-  ip_protocol       = "tcp"
+  # No apostrophe: AWS restricts security group rule descriptions to
+  # a-zA-Z0-9 and ._-:/()#,@[]+=&;{}!$* and rejects anything else.
+  description = "SSH from admin_cidr only"
+  cidr_ipv4   = var.admin_cidr
+  from_port   = 22
+  to_port     = 22
+  ip_protocol = "tcp"
 }
 
 resource "aws_vpc_security_group_ingress_rule" "api" {
