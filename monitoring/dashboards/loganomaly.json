@@ -1,0 +1,278 @@
+{
+  "uid": "loganomaly-overview",
+  "title": "Log Anomaly Detection — service and self-monitoring",
+  "description": "Request rate, latency and error rate for the API, alongside the anomaly count the service's own detector produces from these same logs.",
+  "tags": ["loganomaly", "cloudwatch"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Traffic",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Request rate",
+      "description": "Requests per 5-minute period, from the metric filter over the structured access log. default_value 0 on that filter is what makes idle periods read as zero rather than a gap.",
+      "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+          "namespace": "loganomaly/api",
+          "metricName": "RequestCount",
+          "statistic": "Sum",
+          "dimensions": {},
+          "period": "300",
+          "region": "default",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "label": "requests"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Server error rate (%)",
+      "description": "ServerErrors / RequestCount. This is the expression the api-5xx-rate alarm evaluates; the IF guard avoids dividing by zero during idle periods.",
+      "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "errors",
+          "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+          "namespace": "loganomaly/api",
+          "metricName": "ServerErrors",
+          "statistic": "Sum",
+          "dimensions": {},
+          "period": "300",
+          "region": "default",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "hide": true
+        },
+        {
+          "refId": "requests",
+          "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+          "namespace": "loganomaly/api",
+          "metricName": "RequestCount",
+          "statistic": "Sum",
+          "dimensions": {},
+          "period": "300",
+          "region": "default",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "hide": true
+        },
+        {
+          "refId": "rate",
+          "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "100 * (errors / IF(requests > 0, requests, 1))",
+          "id": "rate",
+          "region": "default",
+          "period": "300",
+          "label": "5xx rate"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Latency (ms)",
+      "description": "From duration_ms in the access log. Average and Maximum are both shown: an average alone hides the one slow request that a user actually noticed.",
+      "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 5 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+          "namespace": "loganomaly/api",
+          "metricName": "LatencyMs",
+          "statistic": "Average",
+          "dimensions": {},
+          "period": "300",
+          "region": "default",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "label": "mean"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+          "namespace": "loganomaly/api",
+          "metricName": "LatencyMs",
+          "statistic": "Maximum",
+          "dimensions": {},
+          "period": "300",
+          "region": "default",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "label": "max"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Instance CPU (%)",
+      "description": "A default EC2 metric — no agent installed, no custom metric charged. Expect a spike on every deploy while the pipeline fits at startup; that is why the CPU alarm needs two evaluation periods.",
+      "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+          "namespace": "AWS/EC2",
+          "metricName": "CPUUtilization",
+          "statistic": "Average",
+          "dimensions": {},
+          "period": "300",
+          "region": "default",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "label": "cpu"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "The loop — what the detector says about this service",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Anomalies detected in the service's own logs",
+      "description": "Published every 15 minutes by scripts/self_monitor.py, which reads these same CloudWatch logs back, fits a detector on the older portion and scores the recent portion against it. A failed deploy produces log templates that never appear in normal operation, which is what the rarity signal catches.",
+      "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 18 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 60 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 3 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+          "namespace": "loganomaly/api",
+          "metricName": "AnomaliesDetected",
+          "statistic": "Sum",
+          "dimensions": {},
+          "period": "900",
+          "region": "default",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "label": "flagged windows"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Flagged windows, last 6h",
+      "description": "Zero is the expected reading. Anything else means the service's own logs stopped looking like the service's own logs.",
+      "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 18 },
+      "options": {
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 3 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "cloudwatch", "uid": "loganomaly-cloudwatch" },
+          "namespace": "loganomaly/api",
+          "metricName": "AnomaliesDetected",
+          "statistic": "Sum",
+          "dimensions": {},
+          "period": "900",
+          "region": "default",
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        }
+      ]
+    }
+  ]
+}

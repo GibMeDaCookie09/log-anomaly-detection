@@ -1,0 +1,45 @@
+# Grafana over CloudWatch.
+#
+# Two deliberate choices here:
+#
+# network_mode: host - Grafana authenticates to CloudWatch with the instance
+#   role via IMDS, and the instance enforces a metadata hop limit of 1. A
+#   bridged container is one hop too far. Host networking puts Grafana in the
+#   host's network namespace, so it reaches IMDS at hop 1 - and the API
+#   container, which stays bridged, still cannot. The security control and the
+#   dashboard both get what they need.
+#
+# Port 3000 is NOT opened in the security group. Reach it over an SSH tunnel:
+#   ssh -N -L 3000:localhost:3000 ec2-user@<host>
+#   then open http://localhost:3000
+# An unauthenticated metrics console on the public internet is not a dashboard,
+# it is a reconnaissance tool.
+
+services:
+  grafana:
+    image: grafana/grafana-oss:11.6.6
+    container_name: loganomaly-grafana
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_USER:-admin}"
+      # No default. An unset password should fail the stack, not silently
+      # publish a console whose credentials are in a public repository.
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD in monitoring/.env}"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_HTTP_PORT: "3000"
+      AWS_REGION: "${AWS_REGION:-ap-south-1}"
+      AWS_DEFAULT_REGION: "${AWS_REGION:-ap-south-1}"
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  grafana-data:
