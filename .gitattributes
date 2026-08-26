@@ -1,0 +1,18 @@
+# This repo is authored on Windows and runs on Linux. A shell script with CRLF
+# line endings fails outright there - `bad interpreter: /usr/bin/env bash^M` -
+# and the same applies to the inline `run:` blocks in the workflows. Normalising
+# in the repo means the platform you happened to write on cannot break the
+# platform you deploy to.
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.tf    text eol=lf
+*.tftpl text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.py    text eol=lf
+Dockerfile text eol=lf
+
+# Benchmark inputs ship exactly as published by LogHub; the recorded results
+# depend on parsing them byte-for-byte.
+data/** -text

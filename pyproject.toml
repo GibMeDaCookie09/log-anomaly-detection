@@ -1,0 +1,34 @@
+[project]
+name = "loganomaly"
+version = "0.1.0"
+description = "Unsupervised log anomaly detection with LLM explanations"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+# Keeps `pytest` working without callers exporting PYTHONPATH=src.
+# scripts/ too: self_monitor.py holds the self-monitoring logic and is
+# tested like any other module.
+pythonpath = ["src", "scripts"]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "C4",  # comprehensions
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests import after a sys.path insert; that is the point of the insert.
+"tests/*" = ["E402"]
+"scripts/*" = ["E402"]

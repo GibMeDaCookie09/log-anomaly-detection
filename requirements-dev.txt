@@ -1,0 +1,8 @@
+# Dev/CI toolchain. Pinned so local runs and CI agree on the ruff version -
+# an unpinned linter turns a green PR red on someone else's machine.
+-r requirements.txt
+
+ruff==0.16.4
+
+# TestClient transport for the API tests.
+httpx==0.28.1
