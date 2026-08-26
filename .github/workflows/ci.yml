@@ -7,6 +7,10 @@ on:
   # Callable from release.yml so a tag cannot publish an image that never
   # passed CI. Tag pushes do not match the branch filter above.
   workflow_call:
+  # Re-run CI on demand without inventing a commit to trigger it - useful when a
+  # job failed for an external reason (a registry timeout, a runner hiccup)
+  # rather than because the code changed.
+  workflow_dispatch:
 
 # A new push to the same branch makes the in-flight run obsolete. Cancelling it
 # frees a runner and keeps queue times down.
