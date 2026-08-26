@@ -1,0 +1,12 @@
+# Local state contains resource IDs and can contain secrets. Never commit it.
+*.tfstate
+*.tfstate.*
+.terraform/
+# NOTE: .terraform.lock.hcl is deliberately NOT ignored. It pins provider
+# versions and hashes, so `terraform init` resolves identically on every
+# machine. Ignoring it is the Terraform equivalent of shipping unpinned deps.
+crash.log
+
+# Real variable values - the example file is the one that gets committed.
+terraform.tfvars
+*.auto.tfvars

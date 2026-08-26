@@ -1,0 +1,25 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+
+# Your own address, as a /32. Find it with:
+#   curl -s https://checkip.amazonaws.com
+admin_cidr = "203.0.113.7/32"
+
+# Required for the Stage 4 SSH deploy. Generate one first:
+#   ssh-keygen -t ed25519 -C "loganomaly-deploy" -f ~/.ssh/loganomaly_ed25519
+ssh_public_key_path = "~/.ssh/loganomaly_ed25519.pub"
+
+# Set this or the budget alarm is not created - which is the one guardrail
+# standing between a misconfiguration and a bill.
+budget_alert_email = "you@example.com"
+
+# Nearest region. Free tier applies everywhere.
+aws_region = "ap-south-1"
+
+# Uncomment to expose the API publicly for a demo. It has no authentication,
+# so this should be a deliberate decision rather than a default.
+# api_ingress_cidrs = ["0.0.0.0/0"]
+
+# Uncomment to boot straight into a published image instead of an empty host.
+# container_image = "ghcr.io/gibmedacookie09/log-anomaly-detection:latest"
