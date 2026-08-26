@@ -7,8 +7,17 @@
 # versioned with the code rather than baked into an instance that would have to
 # be replaced to change it.
 #
+# Ordering matters here. Everything the deploy depends on is set up first, and
+# anything optional runs last and cannot fail the boot. An earlier version put
+# the Grafana compose plugin before the environment file; the download failed,
+# `set -e` killed the script, and the instance came up with Docker but no
+# /etc/loganomaly/env - so every deploy would have failed on a host that looked
+# healthy.
+#
 # Output lands in /var/log/cloud-init-output.log.
 set -euxo pipefail
+
+# ---- essential ---------------------------------------------------------------
 
 dnf update -y
 dnf install -y docker
@@ -18,17 +27,6 @@ usermod -aG docker ec2-user
 
 # AL2023 ships AWS CLI v2, but guard rather than assume.
 command -v aws >/dev/null 2>&1 || dnf install -y awscli-2
-
-# Compose v2, for the Grafana stack in monitoring/. Packaged on AL2023 under
-# a couple of names depending on release, so try the repo first and fall back
-# to the upstream plugin binary rather than guessing.
-if ! docker compose version >/dev/null 2>&1; then
-  dnf install -y docker-compose-plugin 2>/dev/null || {
-    install -d /usr/local/lib/docker/cli-plugins
-    curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" \n      -o /usr/local/lib/docker/cli-plugins/docker-compose
-    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-  }
-fi
 
 # Fixed paths, deliberately not derived from project_name: the deploy and
 # monitoring scripts default to these, and deriving them from a Terraform
@@ -50,10 +48,8 @@ chmod 0644 /etc/loganomaly/env
 
 # IMDSv2 is enforced on this instance, so the token exchange is mandatory - a
 # plain GET against the metadata endpoint returns 401.
-TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" \
-  -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
-INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $${TOKEN}" \
-  http://169.254.169.254/latest/meta-data/instance-id)
+TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $${TOKEN}" http://169.254.169.254/latest/meta-data/instance-id)
 echo "INSTANCE_ID=$${INSTANCE_ID}" >> /etc/loganomaly/env
 
 # Optional first-boot container. Normally empty: the first real image comes from
@@ -62,15 +58,25 @@ echo "INSTANCE_ID=$${INSTANCE_ID}" >> /etc/loganomaly/env
 IMAGE="${container_image}"
 if [ -n "$${IMAGE}" ]; then
   docker pull "$${IMAGE}"
-  docker run -d \
-    --name ${project_name} \
-    --restart unless-stopped \
-    -p ${api_port}:8000 \
-    --log-driver=awslogs \
-    --log-opt awslogs-region=${aws_region} \
-    --log-opt awslogs-group=${log_group} \
-    --log-opt awslogs-stream="app/$${INSTANCE_ID}" \
-    "$${IMAGE}"
+  docker run -d --name ${project_name} --restart unless-stopped -p ${api_port}:8000 --log-driver=awslogs --log-opt awslogs-region=${aws_region} --log-opt awslogs-group=${log_group} --log-opt awslogs-stream="app/$${INSTANCE_ID}" "$${IMAGE}"
+fi
+
+echo "essential bootstrap complete"
+
+# ---- optional ----------------------------------------------------------------
+# Everything below is best-effort. Nothing here is required for a deploy to
+# succeed, so failures are logged and ignored rather than aborting the boot.
+set +e
+
+# Compose v2, for the Grafana stack in monitoring/. AL2023 does not package it
+# under docker-compose-plugin, so fall back to the upstream plugin binary.
+if ! docker compose version >/dev/null 2>&1; then
+  dnf install -y docker-compose-plugin 2>/dev/null || {
+    install -d /usr/local/lib/docker/cli-plugins
+    curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64"
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+  }
+  docker compose version || echo "WARNING: docker compose unavailable - Grafana (Stage 5) will need it installed by hand"
 fi
 
 echo "bootstrap complete"
