@@ -62,11 +62,20 @@ data "aws_iam_policy_document" "github_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      # Scoped to this one repository. The tighter forms - :environment:production
-      # or :ref:refs/heads/main - were rejected, and rather than guess at which
-      # claim GitHub actually sends, the workflow now logs its own `sub` so this
-      # can be narrowed to the observed value.
-      values = ["repo:${var.github_repository}:*"]
+      # Both spellings of the same repository, scoped to the production
+      # environment. This account emits the immutable-identifier form
+      #   repo:owner@148891370/repo@1347566941:environment:production
+      # rather than the documented plain form, so a policy written against only
+      # the latter is rejected with a bare "Not authorized" and no hint as to why.
+      # Both are listed so this keeps working if the account setting is changed.
+      #
+      # Deliberately NOT a wildcard on the owner: "repo:GibMeDaCookie09*" would
+      # also match a repository owned by "GibMeDaCookie09x", which anyone can
+      # register.
+      values = compact([
+        "repo:${var.github_repository}:environment:production",
+        var.github_immutable_repo_ref != "" ? "repo:${var.github_immutable_repo_ref}:environment:production" : "",
+      ])
     }
   }
 }

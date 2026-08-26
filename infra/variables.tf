@@ -179,3 +179,19 @@ variable "enable_grafana_read" {
   type        = bool
   default     = true
 }
+
+variable "github_immutable_repo_ref" {
+  description = <<-EOT
+    The owner@id/repo@id form GitHub puts in the OIDC `sub` claim when immutable
+    identifiers are enabled on the account - for example
+    "octocat@12345/my-repo@67890". This is not documented prominently and is not
+    what the standard examples show; a trust policy written against the plain
+    owner/repo form is silently rejected.
+
+    Find yours by running the deploy once and reading the "sub =" line the
+    workflow logs before it assumes the role. Leave empty if your account uses
+    the plain form.
+  EOT
+  type        = string
+  default     = "GibMeDaCookie09@148891370/log-anomaly-detection@1347566941"
+}
