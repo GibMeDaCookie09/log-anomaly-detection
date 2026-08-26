@@ -161,6 +161,10 @@ docker build -t loganomaly . && docker run -p 8000:8000 loganomaly
 
 ## Delivery pipeline
 
+> New to any of this? [`docs/PROJECT-GUIDE.pdf`](docs/PROJECT-GUIDE.pdf) explains
+> the whole project from zero - containers, CI/CD, cloud, Terraform, the
+> detection maths, and every bug found along the way.
+>
 > Standing this up from scratch — GitHub, AWS, first deploy, the demo — is
 > a step-by-step runbook in [`docs/SETUP.md`](docs/SETUP.md).
 

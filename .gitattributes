@@ -13,6 +13,13 @@
 *.py    text eol=lf
 Dockerfile text eol=lf
 
+# Binaries must never go through line-ending conversion - `text=auto` usually
+# detects them, but saying so explicitly costs nothing and a corrupted PDF is a
+# silent failure.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+
 # Benchmark inputs ship exactly as published by LogHub; the recorded results
 # depend on parsing them byte-for-byte.
 data/** -text
