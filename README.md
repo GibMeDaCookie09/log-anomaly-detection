@@ -163,6 +163,10 @@ docker build -t loganomaly . && docker run -p 8000:8000 loganomaly
 
 ## Delivery pipeline
 
+> Proof it works: [](docs/evidence/) holds raw output from a
+> deliberately broken deploy - the 503, the rollback firing, the alarm going red,
+> and the detector flagging the burst in the service's own logs.
+>
 > New to any of this? [`docs/PROJECT-GUIDE.pdf`](docs/PROJECT-GUIDE.pdf) explains
 > the whole project from zero - containers, CI/CD, cloud, Terraform, the
 > detection maths, and every bug found along the way.

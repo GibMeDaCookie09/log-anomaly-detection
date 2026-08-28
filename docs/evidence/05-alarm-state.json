@@ -1,0 +1,30 @@
+[
+    {
+        "when": "2026-08-28T16:15:14.106000+05:30",
+        "what": "Alarm updated from OK to ALARM"
+    },
+    {
+        "when": "2026-08-28T16:14:14.105000+05:30",
+        "what": "Alarm updated from ALARM to OK"
+    },
+    {
+        "when": "2026-08-28T16:10:14.102000+05:30",
+        "what": "Alarm updated from OK to ALARM"
+    },
+    {
+        "when": "2026-08-28T16:09:14.104000+05:30",
+        "what": "Alarm updated from ALARM to OK"
+    },
+    {
+        "when": "2026-08-28T16:07:14.105000+05:30",
+        "what": "Alarm updated from OK to ALARM"
+    },
+    {
+        "when": "2026-08-28T15:54:14.105000+05:30",
+        "what": "Alarm updated from INSUFFICIENT_DATA to OK"
+    },
+    {
+        "when": "2026-08-26T22:31:16.318000+05:30",
+        "what": "Alarm updated from INSUFFICIENT_DATA to OK"
+    }
+]

@@ -1,0 +1,22 @@
+2026-08-28T10:31:09Z  deploying    ghcr.io/gibmedacookie09/log-anomaly-detection:main
+2026-08-28T10:31:09Z  running now  ghcr.io/gibmedacookie09/log-anomaly-detection:sha-e612555
+2026-08-28T10:31:09Z  rollback to  ghcr.io/gibmedacookie09/log-anomaly-detection:sha-e612555
+main: Pulling from gibmedacookie09/log-anomaly-detection
+Digest: sha256:fa72a30e9ba1163121b11669eada019cf537946b07686bd2d64540d2bbc6a8a4
+Status: Downloaded newer image for ghcr.io/gibmedacookie09/log-anomaly-detection:main
+ghcr.io/gibmedacookie09/log-anomaly-detection:main
+2026-08-28T10:31:14Z  FAILED: healthy but reports sha 'e6125558d6d245e559b3cd85597faf1f5d93c53c', expected 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+2026-08-28T10:31:14Z  --- container status ---
+loganomaly Up 3 seconds (health: starting) ghcr.io/gibmedacookie09/log-anomaly-detection:main
+2026-08-28T10:31:14Z  --- last 50 log lines ---
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+{"ts":"2026-08-28T10:31:14Z","schema":1,"event":"request","method":"GET","path":"/health","status":200,"duration_ms":3.72,"sha":"e6125558d6d245e559b3cd85597faf1f5d93c53c"}
+{"ts":"2026-08-28T10:31:14Z","schema":1,"event":"request","method":"GET","path":"/health","status":200,"duration_ms":1.04,"sha":"e6125558d6d245e559b3cd85597faf1f5d93c53c"}
+2026-08-28T10:31:14Z  --- health response ---
+{"status":"ok","build":{"version":"main","sha":"e6125558d6d245e559b3cd85597faf1f5d93c53c"},"pipeline":{"fitted":true,"n_templates":106,"window_size":50,"detector":"isolation-forest","explainer_backend":"stub","explanation_cache":0}}
+2026-08-28T10:31:14Z  rolling back to ghcr.io/gibmedacookie09/log-anomaly-detection:sha-e612555
+2026-08-28T10:31:18Z  ROLLED BACK: ghcr.io/gibmedacookie09/log-anomaly-detection:sha-e612555 restored and healthy. Deploy of ghcr.io/gibmedacookie09/log-anomaly-detection:main failed.
+EXIT_CODE=1

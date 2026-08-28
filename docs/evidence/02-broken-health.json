@@ -1,0 +1,1 @@
+{"detail":{"status":"unavailable","reason":"pipeline not fitted","train_data":"/app/data/does-not-exist.csv","train_data_present":false,"build":{"version":"main","sha":"e6125558d6d245e559b3cd85597faf1f5d93c53c"}}}

@@ -1,0 +1,1 @@
+{"status":"ok","build":{"version":"main","sha":"e6125558d6d245e559b3cd85597faf1f5d93c53c"},"pipeline":{"fitted":true,"n_templates":106,"window_size":50,"detector":"isolation-forest","explainer_backend":"stub","explanation_cache":0}}

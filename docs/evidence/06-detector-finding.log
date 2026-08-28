@@ -1,0 +1,22 @@
+# Detector run over a clean baseline followed by a failure burst
+# Captured 2026-08-28. Baseline: 5 minutes of normal operation.
+# Then the container was restarted pointing at training data that does not exist.
+
+[10:35:00Z] generating five minutes of normal operation
+[10:38:50Z] baseline complete
+[10:38:50Z] BREAKING: training data pointed at a file that does not exist
+[10:39:05Z] failure burst generated
+[10:39:25Z] running the detector
+{"ts": "2026-08-28T10:39:28Z", "event": "self_monitor", "source": "cloudwatch:/loganomaly/app", "stats": {"baseline_lines": 1869, "recent_lines": 623, "baseline_windows": 93, "recent_windows": 31, "templates": 5, "threshold": 0.4621, "threshold_percentile": 95.0, "recent_score_max": 0.8302, "baseline_score_spread": 0.368037, "rarity_threshold": 0.0064, "recent_rarity_max": 1.2346}}
+{"event": "self_monitor_result", "anomalies_detected": 1}
+  window 18  score=0.8302  Window contains 1 template(s) matching failure keywords.
+
+[exited with code 0]
+
+# ---------------------------------------------------------------
+# A later run, after 90 minutes of sustained failure, reports 0.
+# That is correct: once the failure IS the baseline there is no
+# contrast left to detect. Anomaly detection is relative.
+
+{"ts": "2026-08-28T12:17:26Z", "event": "self_monitor", "source": "cloudwatch:/loganomaly/app", "stats": {"baseline_lines": 758, "recent_lines": 253, "baseline_windows": 37, "recent_windows": 12, "templates": 5, "threshold": 0.4512, "threshold_percentile": 95.0, "recent_score_max": 0.4512, "baseline_score_spread": 0.445809, "rarity_threshold": 0.0053, "recent_rarity_max": 0.0053}}
+{"event": "self_monitor_result", "anomalies_detected": 0}
