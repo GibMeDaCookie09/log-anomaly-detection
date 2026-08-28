@@ -1,0 +1,27 @@
+# Grafana over CloudWatch - captured from the running instance
+# Authentication is the EC2 instance role via IMDS. No AWS keys exist anywhere.
+
+## version
+{
+  "database": "ok",
+  "version": "12.4.3",
+  "commit": "86c83248"
+}
+## datasource health
+{"message":"1. Successfully queried the CloudWatch metrics API.\n2. Successfully queried the CloudWatch logs API.","status":"OK"}
+
+## custom metrics visible to Grafana
+[{"value":{"name":"LatencyMs","namespace":"loganomaly/api"}},{"value":{"name":"ServerErrors","namespace":"loganomaly/api"}},{"value":{"name":"RequestCount","namespace":"loganomaly/api"}},{"value":{"name":"AnomaliesDetected","namespace":"loganomaly/api"}}]
+
+## provisioned dashboard
+[{"id":3690840946130944,"uid":"loganomaly-overview","orgId":1,"title":"Log Anomaly Detection — service and self-monitoring","uri":"db/6e5f4ed","url":"/d/loganomaly-overview/6e5f4ed","slug":"","type":"dash-db","tags":["cloudwatch","loganomaly"],"isStarred":false,"description":"Request rate, latency and error rate for the API, alongside the anomaly count the service's own detector produces from these same logs.","sortMeta":0,"isDeleted":false}]
+
+## panels in that dashboard
+  [row] Traffic
+  [timeseries] Request rate
+  [timeseries] Server error rate (%)
+  [timeseries] Latency (ms)
+  [timeseries] Instance CPU (%)
+  [row] The loop — what the detector says about this service
+  [timeseries] Anomalies detected in the service's own logs
+  [stat] Flagged windows, last 6h

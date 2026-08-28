@@ -12,6 +12,7 @@ here is raw command output. Nothing was edited by hand.
 | `05-alarm-state.json` | CloudWatch `api-5xx-rate` transitioning **OK → ALARM** under sustained failure |
 | `06-detector-finding.log` | The detector flagging the failure burst in the service's own logs |
 | `07-healthy-after.json` | `/health` after recovery, back on the good build |
+| `08-grafana.log` | Grafana authenticating to CloudWatch via the instance role, all four metrics visible, 8 panels provisioned |
 
 ## What each one demonstrates
 
@@ -37,6 +38,13 @@ flags the burst — rarity `1.2346` against a `0.0064` threshold. The second, af
 90 minutes of sustained failure, reports **zero** — correctly, because by then the
 failure *is* the baseline and there is no contrast left to measure. Anomaly
 detection answers "different from usual", not "bad".
+
+**Grafana reaches CloudWatch with no stored credentials.** `08` shows the
+datasource health check returning "Successfully queried the CloudWatch metrics
+API" — authenticated by the EC2 instance role through IMDS. That only works
+because the compose file uses `network_mode: host`: at a metadata hop limit of 1,
+a bridged container is one hop too far. The API container stays bridged and still
+cannot reach IMDS, which is the point.
 
 ## Not captured here
 

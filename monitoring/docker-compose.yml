@@ -17,7 +17,9 @@
 
 services:
   grafana:
-    image: grafana/grafana-oss:11.6.6
+    # Pinned to a tag that exists - 11.6.6 was invented and does not. Verify with
+    #   curl -s 'https://hub.docker.com/v2/repositories/grafana/grafana-oss/tags'
+    image: grafana/grafana-oss:12.4.3
     container_name: loganomaly-grafana
     restart: unless-stopped
     network_mode: host
