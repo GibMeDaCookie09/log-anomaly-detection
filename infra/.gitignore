@@ -10,3 +10,7 @@ crash.log
 # Real variable values - the example file is the one that gets committed.
 terraform.tfvars
 *.auto.tfvars
+
+# Saved plan files are binary build artifacts, not source.
+tfplan
+*.tfplan

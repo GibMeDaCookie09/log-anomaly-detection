@@ -116,6 +116,7 @@ src/loganomaly/
   observability.py  structured access log (the metric-filter contract)
   api.py        FastAPI service (app factory, /health deploy gate)
 scripts/
+  status.sh             one view: infra, health, alarms, findings, CI/CD
   benchmark.py          line-level comparison
   benchmark_windows.py  window-size sweep
   self_monitor.py       the loop: read own logs, fit, score, publish
@@ -124,6 +125,7 @@ tests/                  34 tests, fully offline
 infra/                  Terraform: EC2, S3, IAM, security group, CloudWatch
   iam.tf                prefix-scoped instance role - see infra/README.md
   ec2.tf                t3.micro, IMDSv2 required, encrypted root volume
+  oidc.tf               GitHub OIDC provider + repo-scoped deploy role
   user_data.sh.tftpl    first-boot bootstrap (Docker only, no deploy logic)
 deploy/
   deploy.sh             roll, health-gate, roll back. Runs on the host.
@@ -348,6 +350,28 @@ step, so no long-lived PAT is left in the instance's docker config.
 cannot tell you whether the security group, the port mapping and the public
 address work. The workflow curls the public URL separately.
 
+**No AWS credentials are stored anywhere.** SSH is restricted to the operator's
+own address, so GitHub's runners - which get an unpredictable address from a huge
+pool - cannot reach port 22 at all. The three obvious fixes are all bad: opening
+SSH to the internet is found by scanners within minutes, allow-listing GitHub's
+published ranges means thousands of CIDRs against a 60-rule limit, and an AWS
+access key in a repository secret is a long-lived credential somewhere it does
+not need to be.
+
+Instead the deploy job proves its identity with a short-lived **OIDC** token,
+opens port 22 for its own runner IP alone, deploys, and revokes that rule in an
+`always()` step - so the port is shut again even if the deploy fails or the job is
+cancelled. The role's trust policy pins the audience and the repository, so no
+other repo (or fork PR) can assume it.
+
+> One trap worth recording: this account emits the **immutable-identifier** form of
+> the subject claim -
+> `repo:owner@148891370/log-anomaly-detection@1347566941:environment:production` -
+> not the `repo:owner/name` form every example shows. A trust policy written
+> against the documented form is rejected with a bare "Not authorized" and no hint
+> as to which condition failed. The workflow logs its own `sub` claim before
+> assuming the role, so this is a two-minute diagnosis rather than an afternoon.
+
 `workflow_dispatch` takes an `image_tag` input, so rolling forward or back to any
 published tag is a button rather than an SSH session.
 
@@ -359,6 +383,8 @@ published tag is a button rather than an SSH session.
 | Secret | `DEPLOY_HOST` | `terraform output -raw public_ip` |
 | Variable | `DEPLOY_USER` | optional, defaults to `ec2-user` |
 | Variable | `API_PORT` | optional, defaults to `8000` |
+| Variable | `AWS_ROLE_ARN` | `terraform output -raw github_actions_role_arn` |
+| Variable | `AWS_REGION` | optional, defaults to `ap-south-1` |
 
 `DEPLOY_HOST` changes on every `terraform apply` unless you set
 `allocate_elastic_ip = true`. If you are actively iterating on CD, set it — the
