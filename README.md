@@ -210,21 +210,39 @@ adding a Python version to the matrix does not require touching repo settings.
 
 ### Dependency caching
 
-`actions/setup-python` restores `~/.cache/pip`, keyed on a hash of
-`requirements.txt` and `requirements-dev.txt`. `scikit-learn`, `scipy` and
-`pandas` are large wheels and downloading them on every run dominates the job.
-The Docker job caches build layers separately via `type=gha`, so the
-`pip install` layer only rebuilds when the requirements files change.
+Two caches are configured. `actions/setup-python` restores `~/.cache/pip`,
+keyed on a hash of `requirements.txt` and `requirements-dev.txt`. The Docker job
+caches build layers separately via `type=gha`, so the `pip install` layer only
+rebuilds when the requirements files change.
 
-<!-- TODO: fill in from real runs before submitting. Method: open the first CI
-     run (cold cache, the caches did not exist yet) and a later run on an
-     unchanged requirements.txt (warm), and read the wall-clock duration of each.
-     Do not quote numbers you have not measured. -->
+Only one of them earns its place, which is the point of measuring rather than
+assuming.
 
-| | Cold cache | Warm cache |
+Measured on this repository, 2026-09-04. Caches were deleted via the API to
+force a genuine cold run, then CI was re-run twice.
+
+| Step | Cold cache | Warm cache |
 |---|---|---|
-| `test` job (3.12) | _measure_ | _measure_ |
-| `docker build` job | _measure_ | _measure_ |
+| `Install dependencies` (Python 3.12) | 27s | 25s |
+| `Build image` (Docker) | 66s | **15s** |
+
+**The Docker layer cache is worth having: 66s to 15s, a 4.4x saving on that
+step.** The `pip install` layer is the expensive one and `type=gha` skips it
+entirely on a cache hit (`#8 CACHED`, `#9 CACHED` in the build log).
+
+**The pip cache is not.** It restores correctly - the log reads `Cache hit ...
+Cache Size: ~11 MB ... Cache restored successfully`, against `pip cache is not
+found` on the cold run - and it saves nothing measurable. 27s versus 25s is
+inside the noise. Install time here is dominated by resolving and unpacking
+wheels rather than downloading them, and GitHub's runners reach PyPI quickly
+enough that the download was never the bottleneck.
+
+Two honest caveats. These are single samples on shared runners, so treat the
+2-second pip difference as zero rather than a small win. And the *first* warm
+run measured 78s on `Build image` - slower than cold - because it ran against
+cache entries from an older build; the 15s figure is from a run immediately
+after the cold one, where the cache matched exactly. A layer cache only pays
+when it actually matches, and a stale one can cost more than it saves.
 
 ### Stage 2 — Image registry ([`.github/workflows/release.yml`](.github/workflows/release.yml))
 
