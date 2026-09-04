@@ -33,12 +33,14 @@ jobs:
       - name: Compute build metadata
         id: vars
         run: |
-          # ghcr rejects uppercase repository paths; GitHub usernames allow them.
-          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-          echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          # Derived from github.sha (not git rev-parse) so it is guaranteed to
-          # match the tag docker/metadata-action generates.
-          echo "sha_tag=sha-$(echo "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          {
+            # ghcr rejects uppercase repository paths; GitHub usernames allow them.
+            echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}"
+            echo "version=${GITHUB_REF_NAME}"
+            # Derived from github.sha (not git rev-parse) so it is guaranteed to
+            # match the tag docker/metadata-action generates.
+            echo "sha_tag=sha-$(echo "${{ github.sha }}" | cut -c1-7)"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -90,7 +92,7 @@ jobs:
           IMAGE="${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha_tag }}"
           docker pull "$IMAGE"
           docker run -d --name verify -p 8000:8000 "$IMAGE"
-          for i in $(seq 1 45); do
+          for _ in $(seq 1 45); do
             if curl -fsS http://localhost:8000/health -o health.json; then break; fi
             sleep 1
           done

@@ -50,17 +50,19 @@ jobs:
         id: vars
         run: |
           IMAGE="${REGISTRY}/${GITHUB_REPOSITORY,,}"
-          if [ -n "${{ inputs.image_tag }}" ]; then
-            # Manual dispatch: deploy an already-published tag, do not rebuild.
-            echo "rebuild=false" >> "$GITHUB_OUTPUT"
-            echo "image_ref=${IMAGE}:${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
-            echo "expected_sha=" >> "$GITHUB_OUTPUT"
-          else
-            echo "rebuild=true" >> "$GITHUB_OUTPUT"
-            echo "image_ref=${IMAGE}:sha-$(echo "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
-            echo "expected_sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          fi
-          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          {
+            if [ -n "${{ inputs.image_tag }}" ]; then
+              # Manual dispatch: deploy an already-published tag, do not rebuild.
+              echo "rebuild=false"
+              echo "image_ref=${IMAGE}:${{ inputs.image_tag }}"
+              echo "expected_sha="
+            else
+              echo "rebuild=true"
+              echo "image_ref=${IMAGE}:sha-$(echo "${{ github.sha }}" | cut -c1-7)"
+              echo "expected_sha=${{ github.sha }}"
+            fi
+            echo "image=${IMAGE}"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
         if: steps.vars.outputs.rebuild == 'true'
@@ -194,9 +196,16 @@ jobs:
               echo "\`$IMAGE\` is live and healthy." >> "$GITHUB_STEP_SUMMARY"
               ;;
             1)
-              echo "### Deploy failed - rolled back" >> "$GITHUB_STEP_SUMMARY"
-              echo "\`$IMAGE\` did not pass the health gate. The previous image was restored and is serving traffic." >> "$GITHUB_STEP_SUMMARY"
-              echo "::error::Deploy failed; automatic rollback succeeded. Service is up on the previous image."
+              # deploy.sh returns 1 for two distinct cases: the health gate
+              # rejected the new image and the previous one was restored, or the
+              # pull failed and the running service was never touched. Both leave
+              # the service up, which is what matters here - but do not claim a
+              # rollback happened when it may not have.
+              {
+                echo "### Deploy failed - service still up"
+                echo "\`$IMAGE\` did not go live. Either it failed the health gate and the previous image was restored, or it could not be pulled and the running container was left alone. See the job log for which."
+              } >> "$GITHUB_STEP_SUMMARY"
+              echo "::error::Deploy failed. The service is still serving traffic on a working image."
               exit 1
               ;;
             2)
@@ -230,7 +239,7 @@ jobs:
         if: steps.deploy.outputs.rc == '0'
         run: |
           URL="http://${SSH_HOST}:${{ vars.API_PORT || '8000' }}/health"
-          for i in $(seq 1 10); do
+          for _ in $(seq 1 10); do
             if curl -fsS --max-time 5 "$URL" -o health.json; then
               cat health.json
               exit 0
